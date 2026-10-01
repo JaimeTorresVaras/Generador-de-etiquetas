@@ -1,0 +1,3 @@
+# Páginas web que pueden imprimir a través de este computador (una por línea).
+# Pega aquí la URL pública de Railway, por ejemplo:
+# https://generador-de-etiquetas-production.up.railway.app

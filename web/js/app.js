@@ -7,11 +7,14 @@
   const MAX_FILAS_PREVIA = 40;
   const CLAVE_PRODUCTOS = 'etiquetas.productos';
   const CLAVE_AJUSTES = 'etiquetas.ajustes';
+  // Servidor local que hace de puente cuando la interfaz se abre desde Railway.
+  const PUENTE_LOCAL = 'http://127.0.0.1:8765';
 
   const estado = {
     productos: [],
     ajustes: E.normalizarAjustes({}),
     servidor: false,
+    base: '', // '' = mismo servidor; PUENTE_LOCAL = interfaz en la nube
     csvPendiente: null
   };
 
@@ -38,7 +41,7 @@
     const opciones = datos === undefined
       ? {}
       : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) };
-    const r = await fetch(ruta, opciones);
+    const r = await fetch(estado.base + ruta, opciones);
     const json = await r.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor' }));
     if (!r.ok || json.ok === false) throw new Error(json.error || 'Error ' + r.status);
     return json;
@@ -52,7 +55,7 @@
       if (!estado.servidor) return;
       try {
         await api('/api/ajustes', estado.ajustes);
-        $('ajustesGuardados').textContent = 'Ajustes guardados en ajustes.json';
+        $('ajustesGuardados').textContent = 'Ajustes guardados en ajustes.json de este computador';
       } catch (e) {
         $('ajustesGuardados').textContent = 'No se pudieron guardar: ' + e.message;
       }
@@ -63,15 +66,21 @@
 
   // ------------------------------------------------------------ servidor
 
+  async function estadoServidor() {
+    if (location.protocol !== 'file:') {
+      estado.base = '';
+      const s = await api('/api/estado').catch(() => null);
+      if (s && !s.nube) return s;
+    }
+    // Interfaz en Railway (o abierta como archivo): usar el servidor local como puente.
+    estado.base = PUENTE_LOCAL;
+    return api('/api/estado');
+  }
+
   async function conectar() {
     const el = $('estado');
-    if (location.protocol === 'file:') {
-      el.className = 'estado estado--aviso';
-      el.textContent = 'Sin servidor: solo descarga .epl / PDF';
-      return;
-    }
     try {
-      const s = await api('/api/estado');
+      const s = await estadoServidor();
       estado.servidor = true;
       const dl = $('listaImpresoras');
       dl.innerHTML = '';
@@ -103,7 +112,16 @@
       actualizar();
     } catch (e) {
       el.className = 'estado estado--error';
-      el.textContent = 'Servidor no responde';
+      if (estado.base === PUENTE_LOCAL) {
+        el.textContent = 'Sin conexión con la impresora';
+        mensaje(
+          'Para imprimir desde esta página, abre iniciar.bat en el computador de la impresora y agrega ' +
+            location.origin + ' al archivo origenes-permitidos.txt. Mientras tanto puedes descargar .epl o PDF.',
+          'error'
+        );
+      } else {
+        el.textContent = 'Servidor no responde';
+      }
     }
   }
 
@@ -371,7 +389,7 @@
 
   async function imprimir(epl, nombre) {
     if (!estado.servidor) {
-      mensaje('Abre la app con iniciar.bat para imprimir directo, o descarga el .epl.', 'error');
+      mensaje('No hay conexión con el servidor local (iniciar.bat). Descarga el .epl o el PDF.', 'error');
       return;
     }
     mensaje('Enviando…');

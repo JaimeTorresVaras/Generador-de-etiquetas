@@ -48,6 +48,28 @@ La ventana negra tiene que quedar abierta mientras se usa la app. Para salir, ba
 3. Si el marco queda corrido hacia arriba o abajo, cambiar el **Desplazamiento Y** (por ejemplo `1.5`). Si queda corrido a un lado, cambiar el **Desplazamiento X** o el **Inicio columna izquierda**. Si solo la columna derecha queda corrida, cambiar el **Paso entre columnas**.
 4. Repetir hasta que quede centrado y después **Imprimir prueba (1 fila)** con productos reales.
 
+## Versión en Railway (acceso desde cualquier navegador)
+
+Railway aloja la **interfaz**, pero un servidor en la nube no puede ver la impresora USB del local. Para imprimir, la página de Railway le envía el trabajo a `servidor.py` corriendo en la laptop de la impresora (`http://127.0.0.1:8765`), que hace de **puente** local.
+
+### Desplegar
+
+1. En <https://railway.com>: **New Project → Deploy from GitHub repo** y elegir `Generador-de-etiquetas` con la rama que corresponda.
+2. Railway detecta `railway.json` y construye con el `Dockerfile`. No hace falta configurar variables: el servidor arranca en **modo nube** (`--nube`), escucha en `$PORT` y deshabilita la impresión y el guardado de ajustes del lado del servidor.
+3. En el servicio: **Settings → Networking → Generate Domain**. Así se obtiene una URL del tipo `https://generador-de-etiquetas-production.up.railway.app`.
+
+### Habilitar la impresión desde esa URL (en la laptop de la impresora)
+
+1. Abrir `origenes-permitidos.txt` (junto a `servidor.py`) y pegar la URL de Railway en una línea, **sin barra final**.
+2. Abrir `iniciar.bat` y dejar la ventana abierta. En la consola debe aparecer `Permite imprimir desde: https://…railway.app`.
+3. Abrir la URL de Railway en Chrome o Edge. La primera vez el navegador pide permiso para **acceder a dispositivos de la red local**: hay que aceptar. Luego el indicador de arriba debe decir *"Listo para imprimir"*.
+
+Si en otro computador no corre el puente, la página de Railway igual sirve para preparar las etiquetas, ver la vista previa y descargar el `.epl` o el PDF.
+
+Notas:
+- En modo nube, los ajustes (desplazamientos, oscuridad, etc.) quedan en el navegador. Cuando hay puente, se guardan en `ajustes.json` de la laptop de la impresora.
+- El puente solo acepta páginas de `localhost` y las URLs listadas en `origenes-permitidos.txt`, en `--permitir URL` o en la variable `ORIGENES_PERMITIDOS`. Ninguna otra web puede mandar trabajos a la impresora.
+
 ## Respaldo sin servidor
 
 - **Descargar .epl** y enviarlo en crudo: compartir la impresora como `Zebra` (Propiedades → Compartir) y ejecutar
@@ -75,7 +97,9 @@ web/            interfaz (HTML + JS sin dependencias, jsPDF incluido en web/vend
   js/etiquetas.js diseño de etiquetas en dots y generación EPL2
   js/csv.js     lectura de CSV y lista rápida de precios
   js/app.js     interfaz
-servidor.py     servidor local + envío RAW (win32print en Windows, lp en Linux/macOS)
+servidor.py     servidor local + envío RAW (win32print en Windows, lp en Linux/macOS);
+                con --nube solo sirve la interfaz (Railway)
+Dockerfile, railway.json   despliegue en Railway
 tests/          pruebas: node --test tests/*.test.js
 ```
 

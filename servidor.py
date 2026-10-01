@@ -11,6 +11,12 @@ Uso:
     python servidor.py --puerto 8800
     python servidor.py --simular            # no imprime: guarda los trabajos en salida/
     python servidor.py --enviar archivo.epl  # envía un archivo EPL y termina
+    python servidor.py --nube               # solo interfaz (Railway); no imprime
+
+Si la interfaz se abre desde Railway, el navegador imprime a través de este
+servidor corriendo en la laptop de la impresora (http://127.0.0.1:8765). Para
+eso, la URL de Railway debe estar en origenes-permitidos.txt (una por línea)
+o pasarse con --permitir https://mi-app.up.railway.app
 
 Solo depende de la biblioteca estándar. En Windows necesita pywin32
 (pip install pywin32) para hablar con la cola de impresión.
@@ -33,6 +39,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(BASE, "web")
 SALIDA = os.path.join(BASE, "salida")
 AJUSTES = os.path.join(BASE, "ajustes.json")
+ORIGENES = os.path.join(BASE, "origenes-permitidos.txt")
 IMPRESORA_POR_DEFECTO = "ZDesigner GK888t (EPL)"
 MAX_TRABAJO = 5 * 1024 * 1024
 
@@ -127,10 +134,28 @@ def guardar_ajustes(datos):
     os.replace(tmp, AJUSTES)
 
 
+def leer_origenes(extra=()):
+    """Orígenes (https://dominio) a los que se les permite imprimir desde otra web."""
+    origenes = set()
+    fuentes = list(extra) + os.environ.get("ORIGENES_PERMITIDOS", "").split(",")
+    try:
+        with open(ORIGENES, encoding="utf-8") as f:
+            fuentes += f.read().splitlines()
+    except OSError:
+        pass
+    for o in fuentes:
+        o = o.split("#", 1)[0].strip().rstrip("/")
+        if o:
+            origenes.add(o.lower())
+    return origenes
+
+
 # --------------------------------------------------------------------- HTTP
 
 class Manejador(http.server.SimpleHTTPRequestHandler):
     simular = False
+    nube = False
+    origenes = set()
     impresora = IMPRESORA_POR_DEFECTO
     candado = threading.Lock()
 
@@ -143,6 +168,11 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        origen = self.headers.get("Origin")
+        if origen and self._origen_valido():
+            # La interfaz alojada en Railway usa este servidor local como puente de impresión.
+            self.send_header("Access-Control-Allow-Origin", origen)
+            self.send_header("Vary", "Origin")
         super().end_headers()
 
     def _json(self, codigo, datos):
@@ -158,8 +188,21 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
         origen = self.headers.get("Origin")
         if origen is None:
             return True
-        host = urllib.parse.urlparse(origen).hostname
-        return host in ("127.0.0.1", "localhost")
+        if urllib.parse.urlparse(origen).hostname in ("127.0.0.1", "localhost"):
+            return True
+        return origen.rstrip("/").lower() in self.origenes
+
+    def do_OPTIONS(self):
+        # Preflight CORS / Private Network Access desde la página de Railway.
+        if not self._origen_valido():
+            return self._json(403, {"ok": False, "error": "Origen no permitido"})
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _leer_json(self):
         if "application/json" not in (self.headers.get("Content-Type") or ""):
@@ -171,8 +214,12 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         ruta = urllib.parse.urlparse(self.path).path
+        if ruta == "/api/estado" and self.nube:
+            return self._json(200, {"ok": True, "nube": True, "raw": False, "impresoras": []})
         if ruta == "/api/estado":
             return self._json(200, {
+                "nube": False,
+                "origenPermitido": self._origen_valido(),
                 "ok": True,
                 "plataforma": sys.platform,
                 "raw": win32print is not None or bool(shutil.which("lp")),
@@ -182,11 +229,13 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
                 "impresoraSugerida": self.impresora,
             })
         if ruta == "/api/ajustes":
-            return self._json(200, leer_ajustes())
+            return self._json(200, {} if self.nube else leer_ajustes())
         return super().do_GET()
 
     def do_POST(self):
         ruta = urllib.parse.urlparse(self.path).path
+        if self.nube:
+            return self._json(403, {"ok": False, "error": "La versión en la nube no imprime: usa el servidor local"})
         if not self._origen_valido():
             return self._json(403, {"ok": False, "error": "Origen no permitido"})
         try:
@@ -227,18 +276,37 @@ def main():
     p.add_argument("--simular", action="store_true", help="no imprimir; guardar los trabajos en salida/")
     p.add_argument("--sin-navegador", action="store_true", help="no abrir el navegador")
     p.add_argument("--enviar", metavar="ARCHIVO", help="enviar un archivo EPL a la impresora y salir")
+    p.add_argument("--nube", action="store_true",
+                   help="modo alojado (Railway): escucha en 0.0.0.0:$PORT, solo sirve la interfaz")
+    p.add_argument("--permitir", action="append", default=[], metavar="ORIGEN",
+                   help="URL de la interfaz alojada que puede imprimir aquí (ej. https://x.up.railway.app)")
     args = p.parse_args()
+    nube = args.nube or bool(os.environ.get("RAILWAY_ENVIRONMENT"))
 
     if args.enviar:
         with open(args.enviar, "rb") as f:
             print(enviar_raw(args.impresora, f.read(), os.path.basename(args.enviar), args.simular))
         return
 
+    if nube:
+        Manejador.nube = True
+        puerto = int(os.environ.get("PORT") or args.puerto)
+        srv = Servidor(("0.0.0.0", puerto), Manejador)
+        print(f"Generador de etiquetas (modo nube) en el puerto {puerto}", flush=True)
+        try:
+            srv.serve_forever()
+        finally:
+            srv.server_close()
+        return
+
     Manejador.simular = args.simular
     Manejador.impresora = args.impresora
+    Manejador.origenes = leer_origenes(args.permitir)
     srv = Servidor(("127.0.0.1", args.puerto), Manejador)
     url = f"http://127.0.0.1:{args.puerto}/"
     print(f"Generador de etiquetas en {url}")
+    for o in sorted(Manejador.origenes):
+        print(f"Permite imprimir desde: {o}")
     print("Modo simulación: los trabajos se guardan en salida/" if args.simular else f"Impresora: {args.impresora}")
     if win32print is None and sys.platform == "win32":
         print("AVISO: falta pywin32 -> py -m pip install pywin32")
