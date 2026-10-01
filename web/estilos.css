@@ -92,7 +92,7 @@ textarea { width: 100%; font: 13px/1.4 ui-monospace, Consolas, monospace; paddin
 .mapeo, .campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .5rem .9rem; margin: .5rem 0; align-items: end; }
 label { display: grid; gap: .2rem; font-size: .85rem; color: var(--suave); }
 label.check { display: flex; align-items: center; gap: .4rem; color: var(--texto); }
-input[type=text], input[type=number], select, .tabla input {
+input[type=text], input[type=number], input[type=search], input[type=password], select, .tabla input {
   font: inherit; color: var(--texto); background: var(--tarjeta);
   border: 1px solid var(--borde); border-radius: 6px; padding: .4rem .5rem; width: 100%; min-width: 0;
 }
@@ -106,8 +106,8 @@ input[type=text], input[type=number], select, .tabla input {
 .tabla td:nth-child(2), .tabla td:nth-child(3) { min-width: 130px; }
 .tabla td:nth-child(4) { width: 110px; }
 .tabla td:nth-child(5) { width: 70px; }
-.tabla .quitar { border: 0; background: none; color: var(--suave); cursor: pointer; font-size: 1.1rem; }
-.tabla .quitar:hover { color: var(--error); }
+.quitar { border: 0; background: none; color: var(--suave); cursor: pointer; font-size: 1.1rem; }
+.quitar:hover { color: var(--error); }
 .vacio { color: var(--suave); text-align: center; padding: 1rem; margin: 0; }
 .resumen { color: var(--suave); font-size: .9rem; }
 
@@ -136,3 +136,14 @@ details summary h2 { display: inline; }
 @media (max-width: 600px) {
   .barra { flex-direction: column; align-items: flex-start; position: static; }
 }
+
+.catalogo__clave, .catalogo__barra { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+.catalogo__buscar { flex: 1 1 260px; }
+.catalogo__buscar small { color: var(--suave); display: inline; }
+.resultados { list-style: none; margin: .5rem 0 0; padding: 0; max-height: 280px; overflow-y: auto; }
+.resultados li { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: center; padding: .3rem .25rem; border-bottom: 1px solid var(--borde); font-size: .9rem; }
+.resultados li:last-child { border-bottom: 0; }
+.resultados .detalle { color: var(--suave); font-size: .8rem; display: block; }
+.resultados .precio { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.resultados .boton { padding: .25rem .6rem; }
+.resultados .vacio { display: block; }

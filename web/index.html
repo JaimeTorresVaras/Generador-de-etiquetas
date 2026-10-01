@@ -31,10 +31,28 @@
         </div>
       </div>
 
+      <div id="panelCatalogo" class="panel catalogo" hidden>
+        <div id="catalogoClave" class="catalogo__clave" hidden>
+          <label>Clave del catálogo<input id="claveCatalogo" type="password" autocomplete="current-password"></label>
+          <button id="btnClave" class="boton boton--primario">Entrar</button>
+        </div>
+        <div id="catalogoBuscador" hidden>
+          <div class="catalogo__barra">
+            <label class="catalogo__buscar">Buscar en el catálogo <small id="catalogoTotal"></small>
+              <input id="buscarCatalogo" type="search" placeholder="Nombre, SKU o código (sirve con lector de códigos + Enter)" autocomplete="off">
+            </label>
+            <button id="btnGuardarCatalogo" class="boton" title="Guarda o actualiza en la base de datos los productos de la tabla">Guardar tabla en catálogo</button>
+          </div>
+          <ul id="resultadosCatalogo" class="resultados"></ul>
+          <p id="catalogoMensaje" class="mensaje" role="status"></p>
+        </div>
+      </div>
+
       <div id="panelMapeo" class="panel" hidden>
         <p><strong id="mapeoTitulo"></strong> Revisa qué columna corresponde a cada dato:</p>
         <div id="mapeoCampos" class="mapeo"></div>
         <label class="check"><input id="mapeoCabecera" type="checkbox" checked> La primera fila es cabecera</label>
+        <label id="mapeoCatalogoOpcion" class="check" hidden><input id="mapeoCatalogo" type="checkbox" checked> Guardar también en el catálogo</label>
         <div class="acciones">
           <button id="mapeoAceptar" class="boton boton--primario">Agregar productos</button>
           <button id="mapeoReemplazar" class="boton">Reemplazar lista</button>

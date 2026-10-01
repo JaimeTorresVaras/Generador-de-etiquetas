@@ -7,6 +7,7 @@
   const MAX_FILAS_PREVIA = 40;
   const CLAVE_PRODUCTOS = 'etiquetas.productos';
   const CLAVE_AJUSTES = 'etiquetas.ajustes';
+  const CLAVE_CATALOGO = 'etiquetas.claveCatalogo';
   // Servidor local que hace de puente cuando la interfaz se abre desde Railway.
   const PUENTE_LOCAL = 'http://127.0.0.1:8765';
 
@@ -15,7 +16,8 @@
     ajustes: E.normalizarAjustes({}),
     servidor: false,
     base: '', // '' = mismo servidor; PUENTE_LOCAL = interfaz en la nube
-    csvPendiente: null
+    csvPendiente: null,
+    catalogo: { disponible: false, clave: '' }
   };
 
   // ------------------------------------------------------------ almacenamiento
@@ -226,6 +228,197 @@
     estado.csvPendiente = null;
     $('panelMapeo').hidden = true;
     mensaje(`${lista.length} productos importados.`, 'ok');
+    if (!$('mapeoCatalogoOpcion').hidden && $('mapeoCatalogo').checked) {
+      guardarEnCatalogo(lista);
+    }
+  }
+
+  // ------------------------------------------------------------ catálogo (PostgreSQL)
+
+  // El catálogo vive en el servidor que sirve la página (Railway), no en el puente de impresión.
+  async function apiCatalogo(ruta, datos) {
+    const headers = { 'X-Clave': estado.catalogo.clave || '' };
+    const opciones = { headers };
+    if (datos !== undefined) {
+      opciones.method = 'POST';
+      headers['Content-Type'] = 'application/json';
+      opciones.body = JSON.stringify(datos);
+    }
+    const r = await fetch(ruta, opciones);
+    const json = await r.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor' }));
+    if (r.status === 401) {
+      estado.catalogo.clave = null;
+      local.guardar(CLAVE_CATALOGO, null);
+      mostrarCatalogo();
+    }
+    if (!r.ok || json.ok === false) throw new Error(json.error || 'Error ' + r.status);
+    return json;
+  }
+
+  function mensajeCatalogo(texto, tipo) {
+    const el = $('catalogoMensaje');
+    el.textContent = texto;
+    el.className = 'mensaje' + (tipo ? ' mensaje--' + tipo : '');
+  }
+
+  function mostrarCatalogo() {
+    const c = estado.catalogo;
+    $('panelCatalogo').hidden = !c.disponible;
+    const pedirClave = c.disponible && c.requiereClave && !c.clave;
+    $('catalogoClave').hidden = !pedirClave;
+    $('catalogoBuscador').hidden = !c.disponible || pedirClave;
+    $('mapeoCatalogoOpcion').hidden = !c.disponible || pedirClave;
+  }
+
+  async function iniciarCatalogo() {
+    if (location.protocol === 'file:') return;
+    try {
+      const r = await fetch('/api/catalogo/estado').then((x) => x.json());
+      estado.catalogo.disponible = !!r.disponible;
+      estado.catalogo.requiereClave = !!r.requiereClave;
+      estado.catalogo.clave = local.leer(CLAVE_CATALOGO) || '';
+      mostrarCatalogo();
+      if (r.disponible && !(r.requiereClave && !estado.catalogo.clave)) buscarCatalogo('');
+    } catch (e) {
+      /* servidor sin catálogo */
+    }
+  }
+
+  function aItem(p) {
+    return { nombre: p.nombre || '', sku: p.sku || '', codigo: p.codigo || '', precio: p.precio == null ? '' : String(p.precio), cantidad: 1 };
+  }
+
+  /** Agrega un producto del catálogo; si ya está en la tabla, suma 1 a la cantidad. */
+  function agregarDesdeCatalogo(p) {
+    const existente = estado.productos.find(
+      (x) => (p.sku && x.sku === p.sku) || (!p.sku && p.codigo && x.codigo === p.codigo)
+    );
+    if (existente) {
+      existente.cantidad = (Number(existente.cantidad) || 0) + 1;
+      guardarProductos();
+      pintarTabla();
+      actualizar();
+    } else {
+      agregarProductos([aItem(p)]);
+    }
+    mensajeCatalogo(`Agregado: ${p.nombre || p.sku || p.codigo}`, 'ok');
+  }
+
+  let resultadosCatalogo = [];
+  let busquedaActual = 0;
+
+  async function buscarCatalogo(q) {
+    const n = ++busquedaActual;
+    try {
+      const r = await apiCatalogo('/api/catalogo?limite=50&q=' + encodeURIComponent(q));
+      if (n !== busquedaActual) return; // llegó una búsqueda más nueva
+      resultadosCatalogo = r.productos;
+      $('catalogoTotal').textContent = `(${r.total} productos)`;
+      pintarResultados(q);
+    } catch (e) {
+      if (n === busquedaActual) mensajeCatalogo('Catálogo: ' + e.message, 'error');
+    }
+  }
+
+  function pintarResultados(q) {
+    const ul = $('resultadosCatalogo');
+    ul.innerHTML = '';
+    if (!resultadosCatalogo.length) {
+      const li = document.createElement('li');
+      li.className = 'vacio';
+      li.textContent = q ? 'Sin resultados.' : 'El catálogo está vacío: importa un CSV para llenarlo.';
+      ul.appendChild(li);
+      return;
+    }
+    for (const p of resultadosCatalogo) {
+      const li = document.createElement('li');
+      const info = document.createElement('div');
+      info.textContent = p.nombre || '(sin nombre)';
+      const det = document.createElement('span');
+      det.className = 'detalle';
+      det.textContent = [p.sku && 'SKU ' + p.sku, p.codigo].filter(Boolean).join(' · ');
+      info.appendChild(det);
+      const precio = document.createElement('span');
+      precio.className = 'precio';
+      precio.textContent = p.precio == null ? '' : '$' + E.formatearCLP(p.precio);
+      const acciones = document.createElement('span');
+      const agregar = document.createElement('button');
+      agregar.className = 'boton';
+      agregar.textContent = 'Agregar';
+      agregar.addEventListener('click', () => agregarDesdeCatalogo(p));
+      const quitar = document.createElement('button');
+      quitar.className = 'quitar';
+      quitar.title = 'Eliminar del catálogo';
+      quitar.textContent = '×';
+      quitar.addEventListener('click', async () => {
+        if (!confirm(`¿Eliminar "${p.nombre || p.sku}" del catálogo?`)) return;
+        try {
+          await apiCatalogo('/api/catalogo/eliminar', { ids: [p.id] });
+          buscarCatalogo($('buscarCatalogo').value.trim());
+        } catch (e) {
+          mensajeCatalogo('No se pudo eliminar: ' + e.message, 'error');
+        }
+      });
+      acciones.append(agregar, quitar);
+      li.append(info, precio, acciones);
+      ul.appendChild(li);
+    }
+  }
+
+  async function guardarEnCatalogo(lista) {
+    const productos = lista
+      .filter((p) => p.sku || p.codigo)
+      .map((p) => ({ nombre: p.nombre, sku: p.sku, codigo: p.codigo, precio: E.parsePrecio(p.precio) }));
+    if (!productos.length) {
+      mensajeCatalogo('Ningún producto tiene SKU o código de barras para guardarlo en el catálogo.', 'error');
+      return;
+    }
+    mensajeCatalogo('Guardando en el catálogo…');
+    try {
+      const r = await apiCatalogo('/api/catalogo/guardar', { productos });
+      mensajeCatalogo(`Catálogo: ${r.insertados} nuevos, ${r.actualizados} actualizados` + (r.omitidos ? `, ${r.omitidos} sin SKU/código` : '') + '.', 'ok');
+      buscarCatalogo($('buscarCatalogo').value.trim());
+    } catch (e) {
+      mensajeCatalogo('No se pudo guardar en el catálogo: ' + e.message, 'error');
+    }
+  }
+
+  function enlazarCatalogo() {
+    const entrar = () => {
+      estado.catalogo.clave = $('claveCatalogo').value;
+      local.guardar(CLAVE_CATALOGO, estado.catalogo.clave);
+      $('claveCatalogo').value = '';
+      mostrarCatalogo();
+      mensajeCatalogo('');
+      buscarCatalogo('');
+    };
+    $('btnClave').addEventListener('click', entrar);
+    $('claveCatalogo').addEventListener('keydown', (ev) => ev.key === 'Enter' && entrar());
+
+    let t = null;
+    const input = $('buscarCatalogo');
+    input.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => buscarCatalogo(input.value.trim()), 250);
+    });
+    // Lector de código de barras: escribe el código y envía Enter.
+    input.addEventListener('keydown', async (ev) => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      clearTimeout(t);
+      const q = input.value.trim();
+      if (!q) return;
+      await buscarCatalogo(q);
+      const exacto = resultadosCatalogo.filter((p) => p.codigo === q || (p.sku && p.sku.toLowerCase() === q.toLowerCase()));
+      const elegido = exacto.length === 1 ? exacto[0] : resultadosCatalogo.length === 1 ? resultadosCatalogo[0] : null;
+      if (elegido) {
+        agregarDesdeCatalogo(elegido);
+        input.value = '';
+      } else if (!resultadosCatalogo.length) {
+        mensajeCatalogo(`"${q}" no está en el catálogo.`, 'error');
+      }
+    });
+    $('btnGuardarCatalogo').addEventListener('click', () => guardarEnCatalogo(estado.productos));
   }
 
   // ------------------------------------------------------------ ajustes
@@ -561,8 +754,10 @@
   estado.ajustes = E.normalizarAjustes(local.leer(CLAVE_AJUSTES) || {});
   estado.productos = (local.leer(CLAVE_PRODUCTOS) || []).filter((p) => p && typeof p === 'object');
   enlazar();
+  enlazarCatalogo();
   pintarAjustes();
   pintarTabla();
   actualizar();
   conectar();
+  iniciarCatalogo();
 })();

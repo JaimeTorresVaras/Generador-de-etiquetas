@@ -58,6 +58,22 @@ Railway aloja la **interfaz**, pero un servidor en la nube no puede ver la impre
 2. Railway detecta `railway.json` y construye con el `Dockerfile`. No hace falta configurar variables: el servidor arranca en **modo nube** (`--nube`), escucha en `$PORT` y deshabilita la impresión y el guardado de ajustes del lado del servidor.
 3. En el servicio: **Settings → Networking → Generate Domain**. Así se obtiene una URL del tipo `https://generador-de-etiquetas-production.up.railway.app`.
 
+### Base de datos: catálogo de productos (PostgreSQL)
+
+El catálogo guarda nombre, SKU, código de barras y precio para no tener que importar el CSV cada vez.
+
+1. En el proyecto de Railway: **+ Create → Database → Add PostgreSQL**.
+2. En el servicio de la app, pestaña **Variables**, agregar:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`. Se elige como *variable reference* y Railway la conecta sola.
+   - `CLAVE_ACCESO` = una clave para el local. La URL es pública, así que sin esta clave el catálogo queda deshabilitado.
+3. Railway vuelve a desplegar solo. La tabla `productos` se crea sola la primera vez.
+
+Uso:
+- En **1. Productos** aparece **Buscar en el catálogo**. La primera vez en cada navegador pide la clave.
+- **Importar CSV** trae la opción *Guardar también en el catálogo*, marcada por defecto. Los productos se identifican por **SKU** (o por código de barras si no tienen SKU), así que reimportar un CSV actualiza nombres y precios **sin duplicar**. Un campo vacío en el CSV no borra el dato guardado.
+- Se puede buscar por nombre, SKU o código. Con un **lector de código de barras**, se escanea en el buscador y el producto se agrega a la tabla. Escanearlo de nuevo suma 1 a la cantidad.
+- **Guardar tabla en catálogo** guarda o actualiza las filas que se editaron a mano.
+
 ### Habilitar la impresión desde esa URL (en la laptop de la impresora)
 
 1. Abrir `origenes-permitidos.txt` (junto a `servidor.py`) y pegar la URL de Railway en una línea, **sin barra final**.
@@ -99,10 +115,13 @@ web/            interfaz (HTML + JS sin dependencias, jsPDF incluido en web/vend
   js/app.js     interfaz
 servidor.py     servidor local + envío RAW (win32print en Windows, lp en Linux/macOS);
                 con --nube solo sirve la interfaz (Railway)
-Dockerfile, railway.json   despliegue en Railway
+catalogo.py     catálogo de productos en PostgreSQL (DATABASE_URL)
+Dockerfile, railway.json, requirements-nube.txt   despliegue en Railway
 tests/          pruebas: node --test tests/*.test.js
 ```
 
+- Pruebas del catálogo, que necesitan un PostgreSQL de prueba porque borran la tabla:
+  `TEST_DATABASE_URL=postgresql://… python3 -m unittest tests/test_catalogo.py`
 - `python3 servidor.py --simular` no imprime: guarda cada trabajo en `salida/*.epl` para revisarlo.
 - La vista previa, el PDF y el EPL salen del mismo diseño en dots (8 dots/mm), así que lo que se ve es lo que se imprime. Las fuentes de la vista previa son aproximaciones de las fuentes residentes de la impresora.
 - El servidor solo escucha en `127.0.0.1` y rechaza peticiones de otros orígenes.

@@ -18,12 +18,17 @@ servidor corriendo en la laptop de la impresora (http://127.0.0.1:8765). Para
 eso, la URL de Railway debe estar en origenes-permitidos.txt (una por línea)
 o pasarse con --permitir https://mi-app.up.railway.app
 
-Solo depende de la biblioteca estándar. En Windows necesita pywin32
+Catálogo de productos (opcional): con DATABASE_URL (PostgreSQL) y psycopg
+instalado se habilita /api/catalogo. En modo nube exige CLAVE_ACCESO, que la
+interfaz envía en la cabecera X-Clave.
+
+La impresión solo depende de la biblioteca estándar. En Windows necesita pywin32
 (pip install pywin32) para hablar con la cola de impresión.
 """
 
 import argparse
 import datetime
+import hmac
 import http.server
 import json
 import os
@@ -34,6 +39,8 @@ import sys
 import threading
 import urllib.parse
 import webbrowser
+
+import catalogo
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(BASE, "web")
@@ -188,8 +195,11 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
         origen = self.headers.get("Origin")
         if origen is None:
             return True
-        if urllib.parse.urlparse(origen).hostname in ("127.0.0.1", "localhost"):
+        url = urllib.parse.urlparse(origen)
+        if url.hostname in ("127.0.0.1", "localhost"):
             return True
+        if url.netloc and url.netloc == self.headers.get("Host"):
+            return True  # misma página (p. ej. la interfaz servida por Railway)
         return origen.rstrip("/").lower() in self.origenes
 
     def do_OPTIONS(self):
@@ -198,7 +208,7 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
             return self._json(403, {"ok": False, "error": "Origen no permitido"})
         self.send_response(204)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Clave")
         self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Access-Control-Max-Age", "600")
         self.send_header("Content-Length", "0")
@@ -212,8 +222,53 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
             raise ValueError("Trabajo demasiado grande")
         return json.loads(self.rfile.read(largo) or b"{}")
 
+    # ----------------------------------------------------------- catálogo
+
+    def _catalogo_estado(self):
+        ok, motivo = catalogo.disponible()
+        clave = os.environ.get("CLAVE_ACCESO", "")
+        if ok and self.nube and not clave:
+            ok, motivo = False, "Falta la variable CLAVE_ACCESO en Railway."
+        return {"ok": True, "disponible": ok, "motivo": motivo, "requiereClave": bool(clave)}
+
+    def _catalogo_autorizado(self):
+        clave = os.environ.get("CLAVE_ACCESO", "")
+        if not clave:
+            return not self.nube  # sin clave solo se permite en la laptop (127.0.0.1)
+        enviada = self.headers.get("X-Clave") or ""
+        return hmac.compare_digest(enviada.encode("utf-8"), clave.encode("utf-8"))
+
+    def _catalogo(self, metodo, ruta, consulta=None, datos=None):
+        if ruta == "/api/catalogo/estado":
+            return self._json(200, self._catalogo_estado())
+        estado = self._catalogo_estado()
+        if not estado["disponible"]:
+            return self._json(503, {"ok": False, "error": estado["motivo"]})
+        if not self._catalogo_autorizado():
+            return self._json(401, {"ok": False, "error": "Clave incorrecta", "requiereClave": True})
+        try:
+            if metodo == "GET" and ruta == "/api/catalogo":
+                q = (consulta.get("q") or [""])[0]
+                limite = (consulta.get("limite") or ["50"])[0]
+                return self._json(200, dict(ok=True, **catalogo.buscar(q, int(limite) if limite.isdigit() else 50)))
+            if metodo == "POST" and ruta == "/api/catalogo/guardar":
+                return self._json(200, dict(ok=True, **catalogo.guardar(datos.get("productos"))))
+            if metodo == "POST" and ruta == "/api/catalogo/eliminar":
+                return self._json(200, dict(ok=True, **catalogo.eliminar(datos.get("ids"))))
+        except ValueError as e:
+            return self._json(400, {"ok": False, "error": str(e)})
+        except Exception as e:  # noqa: BLE001 - error de base de datos
+            sys.stderr.write(f"Error del catálogo: {type(e).__name__}: {e}\n")
+            return self._json(500, {"ok": False, "error": "Error de la base de datos: " + type(e).__name__})
+        return self._json(404, {"ok": False, "error": "Ruta desconocida"})
+
+    # ----------------------------------------------------------- rutas
+
     def do_GET(self):
-        ruta = urllib.parse.urlparse(self.path).path
+        url = urllib.parse.urlparse(self.path)
+        ruta = url.path
+        if ruta.startswith("/api/catalogo"):
+            return self._catalogo("GET", ruta, urllib.parse.parse_qs(url.query))
         if ruta == "/api/estado" and self.nube:
             return self._json(200, {"ok": True, "nube": True, "raw": False, "impresoras": []})
         if ruta == "/api/estado":
@@ -234,14 +289,19 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         ruta = urllib.parse.urlparse(self.path).path
-        if self.nube:
-            return self._json(403, {"ok": False, "error": "La versión en la nube no imprime: usa el servidor local"})
         if not self._origen_valido():
             return self._json(403, {"ok": False, "error": "Origen no permitido"})
+        if self.nube and not ruta.startswith("/api/catalogo"):
+            return self._json(403, {"ok": False, "error": "La versión en la nube no imprime: usa el servidor local"})
         try:
             datos = self._leer_json()
         except (ValueError, json.JSONDecodeError) as e:
             return self._json(400, {"ok": False, "error": str(e)})
+        if not isinstance(datos, dict):
+            return self._json(400, {"ok": False, "error": "Se esperaba un objeto JSON"})
+
+        if ruta.startswith("/api/catalogo"):
+            return self._catalogo("POST", ruta, datos=datos)
 
         if ruta == "/api/imprimir":
             epl = datos.get("epl")
