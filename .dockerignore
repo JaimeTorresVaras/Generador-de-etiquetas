@@ -1,7 +1,4 @@
 .git
-salida
-ajustes.json
-origenes-permitidos.txt
 tests
 docs
 __pycache__

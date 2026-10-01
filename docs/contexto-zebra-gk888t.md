@@ -1,6 +1,6 @@
 # Contexto: impresión de etiquetas en Zebra GK888t (rollo 2 columnas)
 
-Este documento resume la configuración que funciona y los problemas encontrados al imprimir etiquetas de productos (código de barras y precios) en la impresora Zebra del local. Es la base de esta app, que genera e imprime las etiquetas sin pasar por ajustes manuales en Acrobat.
+Este documento resume la configuración que funciona y los problemas encontrados al imprimir etiquetas de productos (código de barras y precios) en la impresora Zebra del local. Es la base de esta app, que genera el PDF de etiquetas de precio.
 
 ## 1. Hardware
 
@@ -80,7 +80,6 @@ Que el texto se vea al revés mirando la salida desde el frente es **normal**: a
 
 - Física: con la impresora encendida, mantener **Feed** hasta que la luz parpadee **2 veces** y soltar. Avanza algunas etiquetas midiendo los gaps.
 - Desde el driver: botón **Calibrar** en Configuración avanzada.
-- Desde la app: botón **Calibrar** (envía `xa`).
 - Recalibrar siempre que se cambie el rollo, el driver o el desplazamiento.
 - Si al calibrar avanza mucho papel y queda en rojo, el sensor no detecta los gaps. Revisar que el papel pase bajo las guías y el sensor, y que el sensor no quede bajo la franja central entre columnas.
 
@@ -105,19 +104,14 @@ Existía un generador HTML (`etiquetas-precios.html`) que:
 
 Esta app incorpora esa función como el tipo de etiqueta **"Solo precio"** y la **"Lista rápida de precios"**.
 
-## 9. Decisión: EPL2 en crudo (RAW)
+## 9. Decisión actual: solo PDF de precios
 
-Generar PDF y pasarlo por Acrobat obliga a repetir ajustes manuales y el escalado introduce errores. La app **envía comandos EPL2 en crudo (RAW)** directamente a la impresora: sin escalado, sin depender de Acrobat y con posición exacta en dots. El PDF queda solo como respaldo.
-
-Notas EPL2:
-- `B x,y,rot,1,...`: el tipo `1` es Code 128 (auto).
-- `ZT`/`ZB` controla si se imprime desde arriba o desde abajo.
-- El offset vertical ajustado en el driver **no se aplica en RAW**: se corrige en la app con el desplazamiento X/Y.
+Se probó enviar EPL2 en crudo (RAW) directo a la impresora, pero la app quedó demasiado compleja. La app actual **solo genera el PDF de precios** (100 × 25 mm por página, 2 etiquetas) y se imprime con Acrobat en **Tamaño real**, como en la sección 5. Los productos y precios se pueden buscar en **Bsale** por API.
 
 ## 10. Pendientes por confirmar en la impresora
 
 - [ ] Si hay **ribbon** instalado (define térmico directo o transferencia).
 - [ ] Causa definitiva de la **luz roja** después de imprimir.
-- [ ] Valor final del **desplazamiento Y** en la app.
+- [ ] Valor final del **desplazamiento superior** del driver (o el ajuste fino de la app).
 - [ ] Medidas exactas del rollo con regla: ancho de etiqueta, separación entre columnas y ancho total.
 - [ ] Si la GK888t acepta **ZPL** además de EPL.

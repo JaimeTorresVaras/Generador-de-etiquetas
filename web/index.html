@@ -3,209 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Generador de etiquetas</title>
+  <title>Etiquetas de precio</title>
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
   <header class="barra">
-    <div>
-      <h1>Generador de etiquetas</h1>
-      <p class="sub">Zebra GK888t · rollo 2 columnas · 51 × 25 mm</p>
-    </div>
-    <div id="estado" class="estado estado--cargando">Conectando…</div>
+    <h1>Etiquetas de precio</h1>
+    <p class="sub">PDF de 100 × 25 mm · 2 etiquetas por fila · Zebra GK888t</p>
   </header>
 
   <main>
-    <!-- 1. Productos -->
+    <!-- Bsale -->
+    <section id="seccionBsale" class="tarjeta" hidden>
+      <h2>Buscar en Bsale</h2>
+      <div id="bsaleClave" class="fila-form" hidden>
+        <label class="crece">Clave<input id="clave" type="password" autocomplete="current-password"></label>
+        <button id="btnClave" class="boton boton--primario">Entrar</button>
+      </div>
+      <div id="bsaleBuscador" hidden>
+        <input id="buscar" type="search" autocomplete="off"
+               placeholder="Nombre, SKU o código de barras (con lector: escanear y Enter)">
+        <ul id="resultados" class="resultados"></ul>
+      </div>
+      <p id="mensajeBsale" class="mensaje" role="status"></p>
+    </section>
+
+    <!-- Precios -->
     <section class="tarjeta">
-      <div class="tarjeta__cab">
-        <h2>1. Productos</h2>
-        <div class="acciones">
-          <label class="boton">
-            Importar CSV
-            <input id="archivoCsv" type="file" accept=".csv,.txt,text/csv" hidden>
-          </label>
-          <button id="btnAgregar" class="boton">Agregar fila</button>
-          <button id="btnListaPrecios" class="boton">Lista rápida de precios</button>
-          <button id="btnLimpiar" class="boton boton--suave">Vaciar</button>
-        </div>
-      </div>
+      <h2>Precios</h2>
+      <form id="formPrecio" class="fila-form">
+        <label class="crece">Precio<input id="nuevoPrecio" type="text" inputmode="numeric" placeholder="12990" required></label>
+        <label class="corto">Cantidad<input id="nuevaCantidad" type="number" min="1" value="1"></label>
+        <button class="boton boton--primario" type="submit">Agregar</button>
+      </form>
+      <details class="pegar">
+        <summary>Pegar una lista de precios</summary>
+        <p class="ayuda">Un precio por línea, con la cantidad opcional: <code>12990 x 5</code>, <code>$4.990;2</code>, <code>1990</code>.</p>
+        <textarea id="lista" rows="5" placeholder="12990 x 4&#10;4990 2&#10;1990"></textarea>
+        <button id="btnLista" class="boton">Agregar lista</button>
+      </details>
 
-      <div id="panelCatalogo" class="panel catalogo" hidden>
-        <div id="catalogoClave" class="catalogo__clave" hidden>
-          <label>Clave del catálogo<input id="claveCatalogo" type="password" autocomplete="current-password"></label>
-          <button id="btnClave" class="boton boton--primario">Entrar</button>
-        </div>
-        <div id="catalogoBuscador" hidden>
-          <div class="catalogo__barra">
-            <label class="catalogo__buscar">Buscar en el catálogo <small id="catalogoTotal"></small>
-              <input id="buscarCatalogo" type="search" placeholder="Nombre, SKU o código (sirve con lector de códigos + Enter)" autocomplete="off">
-            </label>
-            <button id="btnGuardarCatalogo" class="boton" title="Guarda o actualiza en la base de datos los productos de la tabla">Guardar tabla en catálogo</button>
-          </div>
-          <ul id="resultadosCatalogo" class="resultados"></ul>
-          <p id="catalogoMensaje" class="mensaje" role="status"></p>
-        </div>
-      </div>
-
-      <div id="panelMapeo" class="panel" hidden>
-        <p><strong id="mapeoTitulo"></strong> Revisa qué columna corresponde a cada dato:</p>
-        <div id="mapeoCampos" class="mapeo"></div>
-        <label class="check"><input id="mapeoCabecera" type="checkbox" checked> La primera fila es cabecera</label>
-        <label id="mapeoCatalogoOpcion" class="check" hidden><input id="mapeoCatalogo" type="checkbox" checked> Guardar también en el catálogo</label>
-        <div class="acciones">
-          <button id="mapeoAceptar" class="boton boton--primario">Agregar productos</button>
-          <button id="mapeoReemplazar" class="boton">Reemplazar lista</button>
-          <button id="mapeoCancelar" class="boton boton--suave">Cancelar</button>
-        </div>
-      </div>
-
-      <div id="panelLista" class="panel" hidden>
-        <p>Un precio por línea. Opcional: cantidad después de <code>x</code>, espacio o <code>;</code>.
-          Ej.: <code>12990 x 5</code>, <code>$4.990;2</code>, <code>1990</code>.</p>
-        <textarea id="listaPrecios" rows="6" placeholder="12990 x 4&#10;4990 2&#10;1990"></textarea>
-        <div class="acciones">
-          <button id="listaAceptar" class="boton boton--primario">Agregar precios</button>
-          <button id="listaCancelar" class="boton boton--suave">Cancelar</button>
-        </div>
-      </div>
-
-      <div class="tabla-envoltura">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Nombre</th><th>SKU</th><th>Código de barras</th><th class="num">Precio</th><th class="num">Cant.</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="cuerpoTabla"></tbody>
-        </table>
-        <p id="tablaVacia" class="vacio">Importa el CSV de “Generar etiquetas”, agrega filas a mano o pega una lista de precios.</p>
-      </div>
-      <div class="acciones acciones--pie">
+      <table class="tabla">
+        <thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Cant.</th><th></th></tr></thead>
+        <tbody id="cuerpoTabla"></tbody>
+      </table>
+      <p id="tablaVacia" class="vacio">Agrega precios a mano o búscalos en Bsale.</p>
+      <div class="pie">
         <span id="resumen" class="resumen"></span>
-        <button id="btnCantidadUno" class="boton boton--suave">Cantidad 1 a todo</button>
+        <button id="btnVaciar" class="boton boton--suave">Vaciar</button>
       </div>
     </section>
 
-    <!-- 2. Tipo -->
+    <!-- Diseño -->
     <section class="tarjeta">
-      <h2>2. Tipo de etiqueta</h2>
-      <div class="opciones">
-        <label class="opcion"><input type="radio" name="tipo" value="codigo" checked>
-          <span><strong>Código de barras</strong><small>Nombre, SKU y CODE128</small></span></label>
-        <label class="opcion"><input type="radio" name="tipo" value="precio">
-          <span><strong>Solo precio</strong><small>Precio grande en CLP</small></span></label>
-      </div>
-      <div class="campos" data-tipo="codigo">
-        <label>Alto de las barras (mm)<input data-ajuste="alturaBarrasMm" type="number" step="0.5" min="4" max="20"></label>
-        <label class="check"><input data-ajuste="mostrarPrecioEnCodigo" type="checkbox"> Mostrar precio junto al SKU</label>
-      </div>
-      <div class="campos" data-tipo="precio">
-        <label>Texto superior (opcional)<input data-ajuste="prefijoPrecio" type="text" placeholder="Oferta"></label>
-        <label class="check"><input data-ajuste="simboloPeso" type="checkbox"> Signo $</label>
-        <label class="check"><input data-ajuste="mostrarNombreEnPrecio" type="checkbox"> Nombre del producto abajo</label>
-      </div>
-    </section>
-
-    <!-- 3. Vista previa -->
-    <section class="tarjeta">
-      <div class="tarjeta__cab">
-        <h2>3. Vista previa <small id="previaInfo"></small></h2>
-        <label class="check"><input id="previaGuias" type="checkbox" checked> Mostrar bordes de etiqueta</label>
-      </div>
-      <ul id="avisos" class="avisos"></ul>
-      <div id="previa" class="previa"></div>
-      <p id="previaMas" class="vacio" hidden></p>
-    </section>
-
-    <!-- 4. Imprimir -->
-    <section class="tarjeta">
-      <h2>4. Imprimir</h2>
+      <h2>Diseño</h2>
       <div class="campos">
-        <label>Impresora
-          <input id="impresora" data-ajuste="impresora" list="listaImpresoras" type="text">
-          <datalist id="listaImpresoras"></datalist>
-        </label>
+        <label>Texto superior (opcional)<input data-ajuste="prefijo" type="text" placeholder="Oferta" maxlength="30"></label>
+        <label class="check"><input data-ajuste="simboloPeso" type="checkbox"> Signo $</label>
+        <label class="check"><input data-ajuste="mostrarNombre" type="checkbox"> Nombre del producto abajo</label>
       </div>
-      <div class="acciones">
-        <button id="btnPrueba" class="boton boton--primario">Imprimir prueba (1 fila)</button>
-        <button id="btnTodo" class="boton boton--primario">Imprimir todo</button>
-        <button id="btnCalibrar" class="boton">Calibrar</button>
-        <button id="btnMarco" class="boton">Fila de alineación</button>
-        <button id="btnConfig" class="boton boton--suave">Imprimir configuración</button>
-      </div>
-      <div class="acciones">
-        <button id="btnEpl" class="boton boton--suave">Descargar .epl</button>
-        <button id="btnPdf" class="boton boton--suave">Descargar PDF (respaldo Acrobat)</button>
-      </div>
-      <p id="mensaje" class="mensaje" role="status"></p>
       <details>
-        <summary>Ver comandos EPL2</summary>
-        <textarea id="verEpl" rows="12" readonly spellcheck="false"></textarea>
+        <summary>Ajuste fino</summary>
+        <p class="ayuda">Si el precio sale corrido en la etiqueta: positivo = baja / mueve a la derecha.</p>
+        <div class="campos">
+          <label>Desplazamiento vertical (mm)<input data-ajuste="desplazamientoYMm" type="number" step="0.5"></label>
+          <label>Desplazamiento horizontal (mm)<input data-ajuste="desplazamientoXMm" type="number" step="0.5"></label>
+          <label>Ancho máximo del precio (mm)<input data-ajuste="anchoTextoMm" type="number" step="1"></label>
+          <label>Tamaño máximo (pt)<input data-ajuste="tamanoMaxPt" type="number" step="1"></label>
+        </div>
+        <button id="btnRestaurar" class="boton boton--suave">Restaurar valores</button>
       </details>
     </section>
 
-    <!-- 5. Ajustes -->
+    <!-- PDF -->
     <section class="tarjeta">
-      <details id="detallesAjustes">
-        <summary><h2>5. Ajustes de impresora y rollo</h2></summary>
-        <div class="grupo">
-          <h3>Impresora</h3>
-          <div class="campos">
-            <label>Modo
-              <select data-ajuste="termicoDirecto">
-                <option value="true">Térmico directo (sin ribbon)</option>
-                <option value="false">Transferencia térmica (con ribbon)</option>
-              </select>
-            </label>
-            <label>Oscuridad (0–15)<input data-ajuste="oscuridad" type="number" min="0" max="15" step="1"></label>
-            <label>Velocidad
-              <select data-ajuste="velocidad">
-                <option value="2">2 · 51 mm/s</option>
-                <option value="3">3 · 76 mm/s</option>
-                <option value="4">4 · 102 mm/s</option>
-              </select>
-            </label>
-            <label>Sentido de impresión
-              <select data-ajuste="orientacion">
-                <option value="T">ZT · desde arriba</option>
-                <option value="B">ZB · desde abajo (girada 180°)</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        <div class="grupo">
-          <h3>Corrección de posición</h3>
-          <p class="ayuda">Reemplaza el “desplazamiento superior” del driver. Positivo = baja / mueve a la derecha. Usa la “Fila de alineación” para medir.</p>
-          <div class="campos">
-            <label>Desplazamiento vertical Y (mm)<input data-ajuste="offsetYMm" type="number" step="0.25" min="-20" max="20"></label>
-            <label>Desplazamiento horizontal X (mm)<input data-ajuste="offsetXMm" type="number" step="0.25" min="-20" max="20"></label>
-          </div>
-        </div>
-        <div class="grupo">
-          <h3>Rollo</h3>
-          <div class="campos">
-            <label>Ancho etiqueta (mm)<input data-ajuste="anchoEtiquetaMm" type="number" step="0.5"></label>
-            <label>Alto etiqueta (mm)<input data-ajuste="altoEtiquetaMm" type="number" step="0.5"></label>
-            <label>Gap entre filas (mm)<input data-ajuste="gapMm" type="number" step="0.5"></label>
-            <label>Inicio columna izquierda (mm)<input data-ajuste="origenXMm" type="number" step="0.25"></label>
-            <label>Paso entre columnas (mm)<input data-ajuste="pasoColumnaMm" type="number" step="0.25"></label>
-            <label>Margen interior (mm)<input data-ajuste="margenMm" type="number" step="0.25"></label>
-            <label>Ancho de impresión (mm)<input data-ajuste="anchoImpresionMm" type="number" step="1" max="104"></label>
-          </div>
-        </div>
+      <div class="cab">
+        <h2>Vista previa <small id="previaInfo"></small></h2>
         <div class="acciones">
-          <button id="btnRestaurar" class="boton boton--suave">Restaurar valores por defecto</button>
-          <span id="ajustesGuardados" class="resumen"></span>
+          <button id="btnAbrir" class="boton">Abrir PDF</button>
+          <button id="btnPdf" class="boton boton--primario">Descargar PDF</button>
         </div>
+      </div>
+      <div id="previa" class="previa"></div>
+      <p id="previaMas" class="vacio" hidden></p>
+      <details class="instrucciones" open>
+        <summary>Cómo imprimir</summary>
+        <ol>
+          <li>Abre el PDF en Acrobat y elige la impresora <strong>ZDesigner GK888t (EPL)</strong>.</li>
+          <li>Tamaño: <strong>Tamaño real</strong>, una página por hoja. <strong>No</strong> usar “Múltiple”.</li>
+          <li>La vista previa debe decir ~100 × 25 mm (no tamaño carta).</li>
+          <li>Prueba primero con <strong>Páginas: 1</strong> y luego imprime todo.</li>
+        </ol>
       </details>
     </section>
   </main>
 
   <script src="vendor/jspdf.umd.min.js"></script>
-  <script src="js/code128.js"></script>
-  <script src="js/etiquetas.js"></script>
-  <script src="js/csv.js"></script>
+  <script src="js/precios.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

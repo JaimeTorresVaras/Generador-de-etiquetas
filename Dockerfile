@@ -1,11 +1,9 @@
-# Imagen para Railway: sirve la interfaz y el catálogo (PostgreSQL). La impresión
-# la hace servidor.py corriendo en la laptop conectada por USB a la Zebra.
+# Railway: sirve la página de etiquetas de precio y la búsqueda en Bsale.
+# Solo usa la biblioteca estándar de Python (sin dependencias).
 FROM python:3.12-slim
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
-COPY requirements-nube.txt ./
-RUN pip install -r requirements-nube.txt
-COPY servidor.py catalogo.py ./
+ENV PYTHONUNBUFFERED=1
+COPY servidor.py bsale.py ./
 COPY web ./web
 EXPOSE 8080
-CMD ["python", "servidor.py", "--nube"]
+CMD ["python", "servidor.py"]

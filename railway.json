@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "python servidor.py --nube",
+    "startCommand": "python servidor.py",
     "healthcheckPath": "/api/estado",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
