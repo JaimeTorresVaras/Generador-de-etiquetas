@@ -1,0 +1,9 @@
+{
+  "name": "generador-de-etiquetas",
+  "private": true,
+  "description": "Etiquetas de código de barras y precio para Zebra GK888t (EPL2 RAW)",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "simular": "python3 servidor.py --simular"
+  }
+}

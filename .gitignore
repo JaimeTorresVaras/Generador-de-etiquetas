@@ -1,0 +1,5 @@
+salida/
+ajustes.json
+ajustes.json.tmp
+__pycache__/
+node_modules/
