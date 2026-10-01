@@ -31,14 +31,14 @@
     <!-- Precios -->
     <section class="tarjeta">
       <h2>Precios</h2>
-      <form id="formPrecio" class="fila-form">
+      <form id="formPrecio" class="fila-form" novalidate>
         <label class="crece">Precio<input id="nuevoPrecio" type="text" inputmode="numeric" placeholder="12990" required></label>
-        <label class="corto">Cantidad<input id="nuevaCantidad" type="number" min="1" value="1"></label>
+        <label class="corto">Cantidad<input id="nuevaCantidad" type="number" min="2" step="2" value="2" title="Solo cantidades pares (2, 4, 6…)"></label>
         <button class="boton boton--primario" type="submit">Agregar</button>
       </form>
       <details class="pegar">
         <summary>Pegar una lista de precios</summary>
-        <p class="ayuda">Un precio por línea, con la cantidad opcional: <code>12990 x 5</code>, <code>$4.990;2</code>, <code>1990</code>.</p>
+        <p class="ayuda">Un precio por línea, con la cantidad opcional: <code>12990 x 4</code>, <code>$4.990;2</code>, <code>1990</code> (= 2). Las cantidades impares se suben al par siguiente.</p>
         <textarea id="lista" rows="5" placeholder="12990 x 4&#10;4990 2&#10;1990"></textarea>
         <button id="btnLista" class="boton">Agregar lista</button>
       </details>
@@ -48,6 +48,7 @@
         <tbody id="cuerpoTabla"></tbody>
       </table>
       <p id="tablaVacia" class="vacio">Agrega precios a mano o búscalos en Bsale.</p>
+      <p class="ayuda">Las cantidades van de a pares (2, 4, 6…) para que cada fila salga completa con el mismo precio en ambas etiquetas.</p>
       <div class="pie">
         <span id="resumen" class="resumen"></span>
         <button id="btnVaciar" class="boton boton--suave">Vaciar</button>

@@ -56,8 +56,9 @@
       const igual = estado.items.find((x) =>
         it.bsaleId ? x.bsaleId === it.bsaleId : !x.bsaleId && x.precio === precio && (x.nombre || '') === (it.nombre || '')
       );
-      if (igual) igual.cantidad += Math.max(1, it.cantidad || 1);
-      else estado.items.push({ precio, cantidad: Math.max(1, it.cantidad || 1), nombre: it.nombre || '', bsaleId: it.bsaleId || null });
+      const cantidad = P.cantidadPar(it.cantidad || 2) || 2;
+      if (igual) igual.cantidad = P.cantidadPar(igual.cantidad + cantidad);
+      else estado.items.push({ precio, cantidad, nombre: it.nombre || '', bsaleId: it.bsaleId || null });
     }
     guardarItems();
     pintarTabla();
@@ -103,11 +104,14 @@
       const cant = document.createElement('input');
       cant.type = 'number';
       cant.min = '0';
+      cant.step = '2';
       cant.value = it.cantidad;
-      cant.addEventListener('input', () => {
-        it.cantidad = Math.max(0, parseInt(cant.value, 10) || 0);
+      cant.title = 'Solo cantidades pares (2, 4, 6…)';
+      cant.addEventListener('change', () => {
+        it.cantidad = P.cantidadPar(cant.value);
+        cant.value = it.cantidad;
         guardarItems();
-        actualizarPronto();
+        actualizar();
       });
       tdCant.appendChild(cant);
 
@@ -194,7 +198,7 @@
       mensajeBsale(`"${p.nombre}" no tiene precio en la lista de Bsale.`, 'error');
       return;
     }
-    agregar([{ precio: p.precio, cantidad: 1, nombre: p.nombre, bsaleId: p.id }]);
+    agregar([{ precio: p.precio, cantidad: 2, nombre: p.nombre, bsaleId: p.id }]);
     mensajeBsale(`Agregado: ${p.nombre} · $${P.formatearCLP(p.precio)}`, 'ok');
   }
 
@@ -329,10 +333,10 @@
     $('formPrecio').addEventListener('submit', (ev) => {
       ev.preventDefault();
       const precio = P.parsePrecio($('nuevoPrecio').value);
-      if (precio === null) return;
-      agregar([{ precio, cantidad: parseInt($('nuevaCantidad').value, 10) || 1 }]);
+      if (precio === null) return $('nuevoPrecio').focus();
+      agregar([{ precio, cantidad: P.cantidadPar($('nuevaCantidad').value) || 2 }]);
       $('nuevoPrecio').value = '';
-      $('nuevaCantidad').value = '1';
+      $('nuevaCantidad').value = '2';
       $('nuevoPrecio').focus();
     });
     $('btnLista').addEventListener('click', () => {
@@ -412,7 +416,7 @@
   estado.ajustes = P.normalizarAjustes(local.leer(CLAVE_AJUSTES) || {});
   estado.items = (local.leer(CLAVE_ITEMS) || [])
     .filter((x) => x && P.parsePrecio(x.precio) !== null)
-    .map((x) => ({ precio: P.parsePrecio(x.precio), cantidad: Math.max(0, parseInt(x.cantidad, 10) || 0), nombre: x.nombre || '', bsaleId: x.bsaleId || null }));
+    .map((x) => ({ precio: P.parsePrecio(x.precio), cantidad: P.cantidadPar(x.cantidad), nombre: x.nombre || '', bsaleId: x.bsaleId || null }));
   enlazar();
   pintarAjustes();
   pintarTabla();

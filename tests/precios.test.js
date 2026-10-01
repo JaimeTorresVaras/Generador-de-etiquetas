@@ -20,16 +20,18 @@ test('precios CLP', () => {
   assert.equal(P.textoPrecio(12990, { simboloPeso: false }), '12.990');
 });
 
-test('lista rápida', () => {
-  const l = P.parsearLista('12990 x 5\n$4.990;2\n1990\n12.990 3\nhola\n');
-  assert.deepEqual(l.map((x) => [x.precio, x.cantidad]), [[12990, 5], [4990, 2], [1990, 1], [12990, 3]]);
+test('cantidades solo pares', () => {
+  assert.deepEqual([0, -3, 1, 2, 3, 4, 5, 2001].map(P.cantidadPar), [0, 0, 2, 2, 4, 4, 6, 1000]);
 });
 
-test('filas de 2 con la última derecha vacía', () => {
-  const f = P.agruparFilas(P.expandir([{ precio: 1, cantidad: 2 }, { precio: 2, cantidad: 1 }]));
-  assert.equal(f.length, 2);
-  assert.equal(f[1][0].precio, 2);
-  assert.equal(f[1][1], null);
+test('lista rápida con cantidades pares', () => {
+  const l = P.parsearLista('12990 x 5\n$4.990;2\n1990\n12.990 4\n500 x 0\nhola\n');
+  assert.deepEqual(l.map((x) => [x.precio, x.cantidad]), [[12990, 6], [4990, 2], [1990, 2], [12990, 4]]);
+});
+
+test('cada fila sale completa y con el mismo precio en ambas etiquetas', () => {
+  const f = P.agruparFilas(P.expandir([{ precio: 1, cantidad: 3 }, { precio: 2, cantidad: 1 }]));
+  assert.deepEqual(f.map((fila) => fila.map((x) => x && x.precio)), [[1, 1], [1, 1], [2, 2]]);
 });
 
 test('precio centrado en 25 y 75 mm, ajustado a 42 mm y máximo 40 pt', () => {

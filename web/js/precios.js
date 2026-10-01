@@ -73,10 +73,17 @@
     return (ajustes.simboloPeso ? '$' : '') + formatearCLP(p);
   }
 
+  /** Las cantidades van de a pares (2, 4, 6…) para llenar filas completas: impar -> par siguiente. */
+  function cantidadPar(n) {
+    const v = Math.floor(Number(n) || 0);
+    if (v <= 0) return 0;
+    return Math.min(1000, Math.ceil(v / 2) * 2);
+  }
+
   /**
-   * Lista rápida, un precio por línea:
-   *   12990          -> 1 etiqueta
-   *   12990 x 5      -> 5 etiquetas (también "12990;5", "12990 5", "$12.990 x5")
+   * Lista rápida, un precio por línea (cantidades redondeadas a par):
+   *   12990          -> 2 etiquetas
+   *   12990 x 4      -> 4 etiquetas (también "12990;4", "12990 4", "$12.990 x4"); x 5 -> 6
    */
   function parsearLista(texto) {
     const out = [];
@@ -84,14 +91,15 @@
       const l = linea.trim();
       if (!l) continue;
       let precio = l;
-      let cantidad = 1;
+      let cantidad = 2;
       const m = l.match(/^(.*?\d.*?)\s*(?:[x*×]|\t|;|\s)\s*(\d+)\s*$/i);
       if (m) {
         precio = m[1];
         cantidad = parseInt(m[2], 10);
       }
       if (parsePrecio(precio) === null) continue;
-      out.push({ precio: parsePrecio(precio), cantidad, nombre: '' });
+      const par = cantidadPar(cantidad);
+      if (par) out.push({ precio: parsePrecio(precio), cantidad: par, nombre: '' });
     }
     return out;
   }
@@ -100,7 +108,7 @@
   function expandir(items) {
     const out = [];
     for (const it of items || []) {
-      const n = Math.max(0, Math.min(1000, Math.floor(Number(it.cantidad) || 0)));
+      const n = cantidadPar(it.cantidad);
       for (let i = 0; i < n; i++) out.push(it);
     }
     return out;
@@ -170,6 +178,7 @@
     parsePrecio,
     formatearCLP,
     textoPrecio,
+    cantidadPar,
     parsearLista,
     expandir,
     agruparFilas,
