@@ -110,6 +110,15 @@ class PruebasBsale(unittest.TestCase):
             bsale.buscar("196566152571")
         self.assertIn("token", str(e.exception))
 
+    def test_codigos_sin_dependencia_de_precios(self):
+        r = bsale.buscar("pokemon squish", incluir_precio=False)
+        self.assertEqual([x["codigo"] for x in r], ["196566152571", "196566152588"])
+        self.assertTrue(all(x["precio"] is None for x in r))
+        self.assertFalse(any("price_lists" in ruta for ruta, _ in pedidos))
+
+    def test_codigo_inactivo_no_se_imprime(self):
+        self.assertEqual(bsale.buscar("SQPK00059", incluir_precio=False), [])
+
     def test_servidor_y_clave(self):
         srv = servidor.Servidor(("127.0.0.1", 0), servidor.Manejador)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -130,6 +139,12 @@ class PruebasBsale(unittest.TestCase):
             self.assertEqual(codigo, 200)
             self.assertEqual(datos["productos"][0]["precio"], 12990)
             self.assertNotIn(TOKEN, json.dumps(datos))
+            self.assertEqual(get("/api/bsale/buscar?q=SQPK00057&modo=codigos")[0], 401)
+            pedidos.clear()
+            codigo, datos = get("/api/bsale/buscar?q=SQPK00057&modo=codigos", "secreta")
+            self.assertEqual(codigo, 200)
+            self.assertEqual(datos["productos"][0]["codigo"], "196566152571")
+            self.assertFalse(any("price_lists" in ruta for ruta, _ in pedidos))
             with urllib.request.urlopen(base + "/") as r:
                 self.assertIn(b"Etiquetas de precio", r.read())
         finally:

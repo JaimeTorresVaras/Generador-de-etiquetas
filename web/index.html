@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Etiquetas de precio</title>
+  <title>Etiquetas · Carnaval</title>
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
   <header class="barra">
-    <h1>Etiquetas de precio</h1>
+    <h1>Generador de etiquetas</h1>
     <p class="sub">PDF de 100 × 25 mm · 2 etiquetas por fila · Zebra GK888t</p>
   </header>
 
   <main>
+    <div class="pestanas" role="tablist" aria-label="Tipo de etiquetas">
+      <button id="tabPrecios" class="boton" role="tab" aria-selected="true" aria-controls="panelPrecios">Etiquetas de precio</button>
+      <button id="tabCodigos" class="boton" role="tab" aria-selected="false" aria-controls="panelCodigos" tabindex="-1">Códigos de barras</button>
+    </div>
     <!-- Bsale -->
     <section id="seccionBsale" class="tarjeta" hidden>
       <h2>Buscar en Bsale</h2>
@@ -28,6 +32,7 @@
       <p id="mensajeBsale" class="mensaje" role="status"></p>
     </section>
 
+    <div id="panelPrecios" class="panel" role="tabpanel" aria-labelledby="tabPrecios">
     <!-- Precios -->
     <section class="tarjeta">
       <h2>Precios</h2>
@@ -97,10 +102,46 @@
         </ol>
       </details>
     </section>
+    </div>
+    <div id="panelCodigos" class="panel" role="tabpanel" aria-labelledby="tabCodigos" hidden>
+      <section class="tarjeta">
+        <h2>Códigos de barras</h2>
+        <p class="ayuda">Busca un producto en Bsale arriba o agrega un código nuevo. Cada etiqueta incluye nombre, SKU, barras CODE128 y el código legible.</p>
+        <form id="formCodigo" class="campos" novalidate>
+          <label>Nombre del producto<input id="codigoNombre" type="text" maxlength="120" placeholder="Nombre para la etiqueta"></label>
+          <label>SKU (opcional)<input id="codigoSku" type="text" maxlength="60" placeholder="Código interno del producto"></label>
+          <label>Código de barras<input id="codigoValor" type="text" maxlength="40" autocomplete="off" required placeholder="Escribe o genera un código"></label>
+          <label>Cantidad<input id="codigoCantidad" type="number" min="2" max="1000" step="2" value="2" required></label>
+          <div class="acciones"><button id="btnCodigoNuevo" type="button" class="boton">Generar código nuevo</button><button type="submit" class="boton boton--primario">Agregar código</button></div>
+        </form>
+        <p class="ayuda">Los códigos nuevos son internos, para imprimir; no se guardan en Bsale. Si usas el SKU, el lector devolverá ese SKU. Las cantidades impares se suben al par siguiente.</p>
+        <p id="mensajeCodigo" class="mensaje" role="status"></p>
+        <div class="tabla-scroll"><table class="tabla tabla-codigos">
+          <thead><tr><th>Producto / SKU</th><th>Código</th><th>Cant.</th><th></th></tr></thead>
+          <tbody id="tablaCodigos"></tbody>
+        </table></div>
+        <p id="codigosVacios" class="vacio">Todavía no hay códigos para imprimir.</p>
+        <div class="pie"><span id="resumenCodigos" class="resumen"></span><button id="btnVaciarCodigos" class="boton boton--suave">Vaciar códigos</button></div>
+      </section>
+      <section class="tarjeta">
+        <div class="cab"><h2>Vista previa <small id="infoCodigos"></small></h2><div class="acciones"><button id="btnAbrirCodigos" class="boton">Abrir PDF de códigos</button><button id="btnPdfCodigos" class="boton boton--primario">Descargar PDF de códigos</button></div></div>
+        <details><summary>Ajuste de posición</summary><div class="campos">
+          <label>Horizontal (mm)<input id="codigoX" type="number" min="-2" max="2" step="0.125" value="0"></label>
+          <label>Vertical (mm)<input id="codigoY" type="number" min="-1" max="1" step="0.125" value="0"></label>
+        </div></details>
+        <div id="previaCodigos" class="previa"></div>
+        <p id="masCodigos" class="vacio" hidden></p>
+        <p class="ayuda">PDF de 100 × 25 mm, dos etiquetas iguales por fila. Imprime en Acrobat con Tamaño real y prueba la página 1 con tu lector antes de imprimir el lote.</p>
+      </section>
+    </div>
   </main>
 
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="js/precios.js"></script>
+  <script src="vendor/JsBarcode.all.min.js"></script>
+  <script src="js/codigos.js"></script>
+  <script src="js/codigos-pdf.js"></script>
+  <script src="js/codigos-app.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

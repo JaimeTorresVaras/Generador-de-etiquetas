@@ -66,9 +66,11 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
                 return self._json(503, {"ok": False, "error": "Falta configurar BSALE_ACCESS_TOKEN"})
             if not self._autorizado():
                 return self._json(401, {"ok": False, "error": "Clave incorrecta"})
-            q = (urllib.parse.parse_qs(url.query).get("q") or [""])[0]
+            params = urllib.parse.parse_qs(url.query)
+            q = (params.get("q") or [""])[0]
+            incluir_precio = (params.get("modo") or [""])[0] != "codigos"
             try:
-                return self._json(200, {"ok": True, "productos": bsale.buscar(q)})
+                return self._json(200, {"ok": True, "productos": bsale.buscar(q, incluir_precio=incluir_precio)})
             except bsale.ErrorBsale as e:
                 return self._json(502, {"ok": False, "error": str(e)})
             except Exception as e:  # noqa: BLE001
