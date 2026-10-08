@@ -109,3 +109,13 @@ details summary { cursor: pointer; color: var(--suave); }
 .previa canvas { width: 100%; max-width: 760px; height: auto; background: var(--liner); border-radius: 4px; display: block; }
 .instrucciones ol { margin: .5rem 0 0; padding-left: 1.25rem; }
 .instrucciones li { margin: .2rem 0; }
+.panel { display: grid; gap: 1rem; min-width: 0; }
+.pestanas { display: flex; gap: .5rem; }
+.pestanas [aria-selected=true] { background: var(--primario); color: var(--primario-texto); border-color: var(--primario); }
+.tabla-scroll { overflow-x: auto; }
+.tabla-codigos small { display: block; color: var(--suave); }
+.tabla-codigos td:nth-child(2) { width: auto; font-family: ui-monospace, Consolas, monospace; }
+.tabla-codigos td:nth-child(3) { min-width: 75px; }
+.tabla-codigos td:first-child { min-width: 160px; }
+#previaCodigos { margin-top: 1rem; }
+:focus-visible { outline: 2px solid var(--primario); outline-offset: 2px; }

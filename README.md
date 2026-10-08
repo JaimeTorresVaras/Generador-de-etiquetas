@@ -1,4 +1,4 @@
-# Etiquetas de precio · Zebra GK888t
+# Etiquetas de precio y códigos de barras · Zebra GK888t
 
 Genera un **PDF de etiquetas de precio** para el rollo de **2 columnas de 51 × 25 mm**:
 
@@ -20,6 +20,17 @@ La app **solo genera el PDF**: no se conecta a la impresora. Se imprime desde Ac
 
 La lista y el diseño quedan guardados en el navegador.
 
+### Pestaña Códigos de barras
+
+- Busca por nombre, SKU o código en Bsale. **Agregar código** imprime su `barCode` original en CODE128, preservando los ceros iniciales. Si falta `barCode`, **Usar SKU** imprime el SKU; si faltan ambos, completa el código manualmente.
+- Agrega códigos manuales o pulsa **Generar código nuevo** para obtener un identificador interno de 12 dígitos. No crea productos ni guarda códigos en Bsale. El código nuevo debe registrarse en el sistema donde se vaya a usar antes de vender con él.
+- Cada fila trae dos etiquetas iguales con nombre, SKU, barras y código legible. Cantidades de 2 a 1000 por producto y hasta 4000 etiquetas por lote; los impares se redondean al par siguiente.
+- La búsqueda de códigos no consulta precios y funciona aunque el producto no tenga precio asignado.
+- PDF vectorial de 100 × 25 mm con márgenes libres de barras y módulos enteros de al menos 2 puntos para la Zebra de 203 dpi. Los códigos demasiado largos se rechazan para evitar barras excesivamente estrechas.
+- Vista previa de las primeras 30 filas y ajustes independientes de posición horizontal/vertical. El PDF incluye todo el lote. Imprime en **Tamaño real** y prueba una página con el lector.
+
+La lista de códigos queda guardada por separado de la de precios. La clave de acceso solo se conserva en la sesión del navegador; el token de Bsale permanece en el servidor.
+
 ### Imprimir en la Zebra (Acrobat)
 
 1. Impresora: **ZDesigner GK888t (EPL)**. Su configuración: User defined, 108 × 25 mm, gap 3 mm, *Label with gaps*, y *Térmico directo* si no hay ribbon.
@@ -29,7 +40,7 @@ La lista y el diseño quedan guardados en el navegador.
 
 ## Railway
 
-1. **New Project → Deploy from GitHub repo → Generador-de-etiquetas** (rama `main`). Railway construye con el `Dockerfile` de `railway.json`, sin dependencias.
+1. **New Project → Deploy from GitHub repo → Generador-de-etiquetas** (selecciona la rama publicada). Railway construye con el `Dockerfile` de `railway.json`, sin dependencias de Python.
 2. En **Variables** del servicio:
 
    | Variable | Para qué |
@@ -57,8 +68,13 @@ servidor.py        sirve web/ y /api/bsale/buscar (PORT en Railway; 127.0.0.1:87
 bsale.py           consultas a la API de Bsale
 web/js/precios.js  formato CLP, lista rápida y diseño de cada etiqueta (mm)
 web/js/app.js      interfaz, vista previa y PDF (jsPDF incluido en web/vendor)
+web/js/codigos.js  validación, codificación CODE128 y cantidades
+web/js/codigos-pdf.js  diseño y PDF vectorial de códigos
+web/js/codigos-app.js  pestaña de códigos, vista previa y lista independiente
 tests/             node --test tests/*.test.js  y  python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
 Las pruebas de Bsale usan un Bsale simulado, así que no necesitan red ni token. Para probarlo en local:
 `BSALE_ACCESS_TOKEN=… python3 servidor.py` y abrir <http://127.0.0.1:8765>.
+
+Dependencias incluidas: jsPDF y [JsBarcode 3.12.3](https://github.com/lindell/JsBarcode) (MIT); no se carga código desde un CDN durante el uso.

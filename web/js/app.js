@@ -10,6 +10,7 @@
   const CLAVE_ACCESO = 'precios.clave';
 
   const estado = {
+    tab: 'Precios',
     items: [],
     ajustes: P.normalizarAjustes({}),
     bsale: { activo: false, requiereClave: false, clave: '' },
@@ -36,6 +37,9 @@
   };
   const guardarItems = () => local.guardar(CLAVE_ITEMS, estado.items);
   const guardarAjustes = () => local.guardar(CLAVE_AJUSTES, estado.ajustes);
+  function guardarClave(valor) {
+    try { sessionStorage.setItem(CLAVE_ACCESO, valor || ''); localStorage.removeItem(CLAVE_ACCESO); } catch { /* Clave solo en memoria. */ }
+  }
 
   // ------------------------------------------------------------ medición de texto (jsPDF)
 
@@ -145,7 +149,12 @@
   function mostrarBsale() {
     const b = estado.bsale;
     const pedirClave = b.requiereClave && !b.clave;
-    $('seccionBsale').hidden = !b.activo;
+    $('seccionBsale').hidden = false;
+    if (!b.activo) {
+      $('bsaleClave').hidden = $('bsaleBuscador').hidden = true;
+      mensajeBsale('La conexión con Bsale no está disponible. Puedes agregar etiquetas manualmente.', 'error');
+      return;
+    }
     $('bsaleClave').hidden = !pedirClave;
     $('bsaleBuscador').hidden = pedirClave;
   }
@@ -156,10 +165,10 @@
       const r = await fetch('/api/estado').then((x) => x.json());
       estado.bsale.activo = !!r.bsale;
       estado.bsale.requiereClave = !!r.requiereClave;
-      estado.bsale.clave = local.leer(CLAVE_ACCESO) || '';
+      try { estado.bsale.clave = sessionStorage.getItem(CLAVE_ACCESO) || ''; localStorage.removeItem(CLAVE_ACCESO); } catch { estado.bsale.clave = ''; }
       mostrarBsale();
     } catch (e) {
-      /* sin servidor: solo lista manual */
+      mostrarBsale();
     }
   }
 
@@ -174,14 +183,14 @@
     }
     mensajeBsale('Buscando…');
     try {
-      const r = await fetch('/api/bsale/buscar?q=' + encodeURIComponent(q), {
+      const r = await fetch('/api/bsale/buscar?q=' + encodeURIComponent(q) + (estado.tab === 'Codigos' ? '&modo=codigos' : ''), {
         headers: { 'X-Clave': estado.bsale.clave || '' }
       });
       const json = await r.json().catch(() => ({ ok: false, error: 'Respuesta inválida' }));
       if (n !== busqueda) return; // llegó una búsqueda más nueva
       if (r.status === 401) {
         estado.bsale.clave = '';
-        local.guardar(CLAVE_ACCESO, null);
+        guardarClave('');
         mostrarBsale();
       }
       if (!r.ok || !json.ok) throw new Error(json.error || 'Error ' + r.status);
@@ -189,11 +198,20 @@
       pintarResultados(q);
       mensajeBsale('');
     } catch (e) {
-      if (n === busqueda) mensajeBsale(e.message, 'error');
+      if (n === busqueda) {
+        estado.resultados = [];
+        $('resultados').replaceChildren();
+        mensajeBsale(e.message, 'error');
+      }
     }
   }
 
   function agregarDesdeBsale(p) {
+    if (estado.tab === 'Codigos') {
+      const ok = window.CodigosUI.agregarDesdeBsale(p);
+      mensajeBsale(ok ? `Agregado: ${p.nombre} · ${p.codigo || p.sku}` : 'Revisa el código en el formulario de abajo.', ok ? 'ok' : 'error');
+      return;
+    }
     if (p.precio == null) {
       mensajeBsale(`"${p.nombre}" no tiene precio en la lista de Bsale.`, 'error');
       return;
@@ -223,11 +241,11 @@
       info.appendChild(det);
       const precio = document.createElement('span');
       precio.className = 'precio';
-      precio.textContent = p.precio == null ? 'sin precio' : '$' + P.formatearCLP(p.precio);
+      precio.textContent = estado.tab === 'Codigos' ? (p.codigo ? 'CODE128' : p.sku ? 'Desde SKU' : 'Sin código') : p.precio == null ? 'sin precio' : '$' + P.formatearCLP(p.precio);
       const boton = document.createElement('button');
       boton.className = 'boton';
-      boton.textContent = 'Agregar';
-      boton.disabled = p.precio == null;
+      boton.textContent = estado.tab === 'Codigos' ? (p.codigo ? 'Agregar código' : p.sku ? 'Usar SKU' : 'Completar código') : 'Agregar';
+      boton.disabled = estado.tab !== 'Codigos' && p.precio == null;
       boton.addEventListener('click', () => agregarDesdeBsale(p));
       li.append(info, precio, boton);
       ul.appendChild(li);
@@ -378,7 +396,7 @@
     // Bsale
     const entrar = () => {
       estado.bsale.clave = $('clave').value;
-      local.guardar(CLAVE_ACCESO, estado.bsale.clave);
+      guardarClave(estado.bsale.clave);
       $('clave').value = '';
       mostrarBsale();
       $('buscar').focus();
@@ -388,6 +406,15 @@
 
     let t = null;
     const input = $('buscar');
+    window.addEventListener('etiquetas:tab', ev => {
+      estado.tab = ev.detail;
+      clearTimeout(t);
+      busqueda++;
+      estado.resultados = [];
+      $('resultados').replaceChildren();
+      mensajeBsale('');
+      if (estado.bsale.activo && input.value.trim()) buscar(input.value.trim());
+    });
     input.addEventListener('input', () => {
       clearTimeout(t);
       const q = input.value.trim();
@@ -400,7 +427,9 @@
       clearTimeout(t);
       const q = input.value.trim();
       if (!q) return;
+      const tab = estado.tab;
       await buscar(q);
+      if (input.value.trim() !== q || estado.tab !== tab) return;
       const exactos = estado.resultados.filter((p) => p.codigo === q || (p.sku && p.sku.toLowerCase() === q.toLowerCase()));
       const elegido = exactos.length === 1 ? exactos[0] : estado.resultados.length === 1 ? estado.resultados[0] : null;
       if (elegido) {

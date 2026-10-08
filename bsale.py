@@ -123,7 +123,7 @@ def _parece_codigo(q):
     return bool(re.fullmatch(r"[\w.\-/]+", q))
 
 
-def buscar(q):
+def buscar(q, incluir_precio=True):
     """Lista de {id, nombre, sku, codigo, precio} que calzan con q."""
     q = (q or "").strip()[:100]
     if not q:
@@ -144,9 +144,11 @@ def buscar(q):
                 if str(v.get("state", 0)) == "0":
                     pares.append((p, v))
 
-    pares = pares[:MAX_RESULTADOS]
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        precios = list(ex.map(lambda par: precio_variante(par[1]["id"]), pares))
+    pares = [(p, v) for p, v in pares if str(v.get("state", 0)) == "0"][:MAX_RESULTADOS]
+    precios = [None] * len(pares)
+    if incluir_precio:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            precios = list(ex.map(lambda par: precio_variante(par[1]["id"]), pares))
 
     return [
         {
